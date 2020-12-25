@@ -1,1 +1,1 @@
-# MMDLoader
+# UnityでMMDを表示させるプログラムを制作中です
