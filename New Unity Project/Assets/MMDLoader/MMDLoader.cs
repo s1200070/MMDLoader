@@ -51,14 +51,19 @@ public class MMDLoader : MonoBehaviour
     /// pmdファイル名
     /// </summary>
     string fileName = "/Lat式ミクver2.31/Lat式ミクVer2.31_Normal.pmd";
-    
+
+    HEADER header;
+    uint vert_count; // 頂点数
+    List<t_vertex> tVertexList = new List<t_vertex>(); // 頂点データ(38Bytes/頂点)
+    uint face_vert_count; // 頂点数 // 面数ではありません
+    List<int> face_vert_index = new List<int>(); // 頂点番号(3個/面)
+
 
     /// <summary>
     /// ヘッダー読み込み
     /// </summary>
     void ReadHeader()
     {
-        HEADER header;
         int count = Marshal.SizeOf(typeof(HEADER));
         byte[] readBuffer = new byte[count];
         BinaryReader reader = new BinaryReader(fileStream);
@@ -73,16 +78,12 @@ public class MMDLoader : MonoBehaviour
     /// </summary>
     void ReadVertexList()
     {
-        uint vert_count; // 頂点数
-        List<t_vertex> vertexList = new List<t_vertex>(); // 頂点データ(38Bytes/頂点)
-
-        int count = Marshal.SizeOf(typeof(uint));
+       int count = Marshal.SizeOf(typeof(uint));
         byte[] readBuffer = new byte[count];
         BinaryReader reader = new BinaryReader(fileStream);
         readBuffer = reader.ReadBytes(count);
         GCHandle handle = GCHandle.Alloc(readBuffer, GCHandleType.Pinned);
         vert_count = (uint)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(uint));
-        UnityEngine.Debug.Log(vert_count);
 
         for(int i = 0; i < vert_count; i++)
         {
@@ -92,24 +93,65 @@ public class MMDLoader : MonoBehaviour
             readBuffer = reader.ReadBytes(count);
             handle = GCHandle.Alloc(readBuffer, GCHandleType.Pinned);
             t_vertex tVertex = (t_vertex)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(t_vertex));
-            vertexList.Add(tVertex);
+            tVertexList.Add(tVertex);
             Debug.Log(tVertex.pos[0] + ", " + tVertex.pos[1] + ", " + tVertex.pos[2]);
         }
 
         handle.Free();
     }
 
+    void ReadFace()
+    {
+        int count = Marshal.SizeOf(typeof(uint));
+        byte[] readBuffer = new byte[count];
+        BinaryReader reader = new BinaryReader(fileStream);
+        readBuffer = reader.ReadBytes(count);
+        GCHandle handle = GCHandle.Alloc(readBuffer, GCHandleType.Pinned);
+        face_vert_count = (uint)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(uint));
+
+        for(int i = 0; i < face_vert_count; i++)
+        {
+            count = Marshal.SizeOf(typeof(ushort));
+            readBuffer = new byte[count];
+            reader = new BinaryReader(fileStream);
+            readBuffer = reader.ReadBytes(count);
+            handle = GCHandle.Alloc(readBuffer, GCHandleType.Pinned);
+            ushort face_vert = (ushort)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(ushort));
+            face_vert_index.Add((int)face_vert);
+        }
+
+        handle.Free();
+    }
+
+    void DrawMesh()
+    {
+        Mesh mesh = new Mesh();
+
+        // 頂点リストを作成
+        List<Vector3> vertices = new List<Vector3>();
+
+        foreach(t_vertex t_Vertex in tVertexList)
+        {
+            Vector3 vertex = new Vector3(t_Vertex.pos[0], t_Vertex.pos[1], t_Vertex.pos[2]);
+            vertices.Add(vertex);
+        }
+
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(face_vert_index, 0);
+        MeshFilter meshFilter = GetComponent<MeshFilter>();
+        meshFilter.mesh = mesh;
+    }
 
     // Start is called before the first frame update
     void Start()
     {
         fileStream = new FileStream(Application.dataPath + fileName, FileMode.Open, FileAccess.Read);
-
         ReadHeader();
         ReadVertexList();
-
+        ReadFace();
         fileStream.Dispose();
 
+        DrawMesh();
     }
 
 }
