@@ -206,7 +206,7 @@ public class MMDLoader : MonoBehaviour
             Vector3 vertex = new Vector3(t_Vertex.pos[0], t_Vertex.pos[1], t_Vertex.pos[2]);
             vertices.Add(vertex);
 
-            Vector3 uv = new Vector3(t_Vertex.uv[0], t_Vertex.uv[1]);
+            Vector3 uv = new Vector3(t_Vertex.uv[0], 1 - t_Vertex.uv[1]);
 
             uvList.Add(uv);
         }
@@ -217,7 +217,8 @@ public class MMDLoader : MonoBehaviour
             facevertList.Add(face_vert_index[i]);
         }
         mesh.SetVertices(vertices);
-        mesh.SetUVs(0, uvList);
+        //mesh.SetUVs(0, uvList);
+        mesh.uv = uvList.ToArray();
         mesh.SetTriangles(facevertList, 0);
         MeshFilter meshFilter = obj.GetComponent<MeshFilter>();
 
@@ -230,6 +231,7 @@ public class MMDLoader : MonoBehaviour
         obj.GetComponent<Renderer>().material.SetTexture("_MainTex", J_SEIKAI01);
 
         meshFilter.mesh = mesh;
+        meshFilter.mesh.RecalculateBounds();
     }
 
 
@@ -250,6 +252,7 @@ public class MMDLoader : MonoBehaviour
             DrawMesh(offsetPos, (int)tMaterial.face_vert_count, new string(tMaterial.texture_file_name));
             offsetPos += (int)tMaterial.face_vert_count;
         }
+
     }
 
 }
