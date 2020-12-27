@@ -187,51 +187,60 @@ public class MMDLoader : MonoBehaviour
 
     void DrawMesh(int offsetPos, int faceVertCount, string textureName)
     {
+        // 頂点リストを作成
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector2> uvList = new List<Vector2>();
+        List<int> facevertList = new List<int>();
+        int faceVertIndex = 0;
+        Mesh mesh = new Mesh();
+
+        //メッシュ用ゲームオブジェクト生成
         GameObject obj = new GameObject();
         obj.transform.parent = this.transform;
         obj.transform.localScale = Vector3.one;
         obj.AddComponent<MeshRenderer>();
         obj.AddComponent<MeshFilter>();
 
-        Mesh mesh = new Mesh();
-
-        // 頂点リストを作成
-        List<Vector3> vertices = new List<Vector3>();
-        List<Vector2> uvList = new List<Vector2>();
-
-        int i = 0;
-
         foreach (t_vertex t_Vertex in tVertexList)
         {
+            //頂点追加
             Vector3 vertex = new Vector3(t_Vertex.pos[0], t_Vertex.pos[1], t_Vertex.pos[2]);
             vertices.Add(vertex);
 
+            //UV追加
+            //note: mmdのUV座標のy座標はUnityで描画する場合 1 - uv.y
             Vector3 uv = new Vector3(t_Vertex.uv[0], 1 - t_Vertex.uv[1]);
-
             uvList.Add(uv);
         }
 
-        List<int> facevertList = new List<int>();
-        for(i = offsetPos; i < offsetPos + faceVertCount; i++)
+        //面情報リスト
+        for (faceVertIndex = offsetPos; faceVertIndex < offsetPos + faceVertCount; faceVertIndex++)
         {
-            facevertList.Add(face_vert_index[i]);
+            facevertList.Add(face_vert_index[faceVertIndex]);
         }
-        mesh.SetVertices(vertices);
-        //mesh.SetUVs(0, uvList);
-        mesh.uv = uvList.ToArray();
-        mesh.SetTriangles(facevertList, 0);
-        MeshFilter meshFilter = obj.GetComponent<MeshFilter>();
 
-        Texture J_SEIKAI01;
+        //頂点流し込み
+        mesh.SetVertices(vertices);
+        //uv情報流し込み
+        mesh.uv = uvList.ToArray();
+        //三角形描画
+        mesh.SetTriangles(facevertList, 0);
+
+        //テクスチャ生成
+        Texture texture;
         string fileName = textureName.Split('*')[0];
         fileName = fileName.Split('.')[0];
-        J_SEIKAI01 = Resources.Load("lat/"+fileName) as Texture;
+        texture = Resources.Load("lat/"+fileName) as Texture;
+        //テクスチャをmeshに貼り付け
         obj.GetComponent<Renderer>().material.shader = Shader.Find("Unlit/Texture");
-        obj.name = fileName;
-        obj.GetComponent<Renderer>().material.SetTexture("_MainTex", J_SEIKAI01);
+        obj.GetComponent<Renderer>().material.SetTexture("_MainTex", texture);
 
+        MeshFilter meshFilter = obj.GetComponent<MeshFilter>();
         meshFilter.mesh = mesh;
         meshFilter.mesh.RecalculateBounds();
+
+        //GameObjectの名前をいったん仮でマテリアル名にしておく
+        obj.name = fileName;
     }
 
 
