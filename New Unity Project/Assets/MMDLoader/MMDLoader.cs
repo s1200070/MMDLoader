@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -72,6 +71,15 @@ public class t_material
 
 public class MMDLoader : MonoBehaviour
 {
+
+    public enum Mode
+    {
+        Opaque,
+        Cutout,
+        Fade,
+        Transparent,
+    }
+
     FileStream fileStream;
 
 
@@ -181,12 +189,16 @@ public class MMDLoader : MonoBehaviour
                 textureFileName += tMateriali.texture_file_name[j];
             }
             UnityEngine.Debug.Log(textureFileName);
+            UnityEngine.Debug.Log(tMateriali.toon_index);
             tMaterialiList.Add(tMateriali);
         }
     }
 
-    void DrawMesh(int offsetPos, int faceVertCount, string textureName)
+    void DrawMesh(int offsetPos, t_material mat)
     {
+        int faceVertCount = (int)mat.face_vert_count;
+        string textureName = new string(mat.texture_file_name);
+
         // 頂点リストを作成
         List<Vector3> vertices = new List<Vector3>();
         List<Vector2> uvList = new List<Vector2>();
@@ -229,11 +241,15 @@ public class MMDLoader : MonoBehaviour
         //テクスチャ生成
         Texture texture;
         string fileName = textureName.Split('*')[0];
+        var count = textureName.Split('*')[0].Length;
         fileName = fileName.Split('.')[0];
         texture = Resources.Load("lat/"+fileName) as Texture;
         //テクスチャをmeshに貼り付け
-        obj.GetComponent<Renderer>().material.shader = Shader.Find("Unlit/Texture");
-        obj.GetComponent<Renderer>().material.SetTexture("_MainTex", texture);
+        obj.GetComponent<Renderer>().material.shader = Shader.Find("Standard (Specular setup)");
+        obj.GetComponent<Renderer>().material.mainTexture =texture;
+        obj.GetComponent<Renderer>().material.SetColor("_Color", new Color(mat.diffuse_color[0], mat.diffuse_color[1], mat.diffuse_color[2], mat.alpha));
+        obj.GetComponent<Renderer>().material.SetColor("_SpecColor", new Color(mat.specular_color[0], mat.specular_color[1], mat.specular_color[2], 1));
+
 
         MeshFilter meshFilter = obj.GetComponent<MeshFilter>();
         meshFilter.mesh = mesh;
@@ -241,8 +257,63 @@ public class MMDLoader : MonoBehaviour
 
         //GameObjectの名前をいったん仮でマテリアル名にしておく
         obj.name = fileName;
+
+        if (obj.name == "")
+        {
+            SetBlendMode(obj.GetComponent<Renderer>().material, Mode.Transparent);
+            obj.GetComponent<Renderer>().material.SetFloat("_SrcBlend", 0.0f);
+        }
+
     }
 
+    public static void SetBlendMode(Material material, Mode blendMode)
+    {
+        material.SetFloat("_Mode", (float)blendMode);  // <= これが必要
+
+        switch (blendMode)
+        {
+            case Mode.Opaque:
+                material.SetOverrideTag("RenderType", "");
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                material.SetInt("_ZWrite", 1);
+                material.DisableKeyword("_ALPHATEST_ON");
+                material.DisableKeyword("_ALPHABLEND_ON");
+                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                material.renderQueue = -1;
+                break;
+            case Mode.Cutout:
+                material.SetOverrideTag("RenderType", "TransparentCutout");
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                material.SetInt("_ZWrite", 1);
+                material.EnableKeyword("_ALPHATEST_ON");
+                material.DisableKeyword("_ALPHABLEND_ON");
+                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                material.renderQueue = 2450;
+                break;
+            case Mode.Fade:
+                material.SetOverrideTag("RenderType", "Transparent");
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_ZWrite", 0);
+                material.DisableKeyword("_ALPHATEST_ON");
+                material.EnableKeyword("_ALPHABLEND_ON");
+                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                material.renderQueue = 3000;
+                break;
+            case Mode.Transparent:
+                material.SetOverrideTag("RenderType", "Transparent");
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_ZWrite", 0);
+                material.DisableKeyword("_ALPHATEST_ON");
+                material.DisableKeyword("_ALPHABLEND_ON");
+                material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+                material.renderQueue = 3000;
+                break;
+        }
+    }
 
     // Start is called before the first frame update
     void Start()
@@ -258,7 +329,7 @@ public class MMDLoader : MonoBehaviour
 
         foreach(t_material tMaterial in tMaterialiList)
         {
-            DrawMesh(offsetPos, (int)tMaterial.face_vert_count, new string(tMaterial.texture_file_name));
+            DrawMesh(offsetPos, tMaterial);
             offsetPos += (int)tMaterial.face_vert_count;
         }
 
